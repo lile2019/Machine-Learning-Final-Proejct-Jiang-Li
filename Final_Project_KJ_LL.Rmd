@@ -1,0 +1,240 @@
+---
+title: "Final_Project_KL"
+author: "Kai Jiang&Le Li"
+date: "4/22/2021"
+output: pdf_document
+---
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(foreign)
+library(tidyverse)
+library(dplyr)
+library(gtools)
+library(MASS)
+library(mi)
+library(pROC)
+```
+
+```{r message=FALSE, warning=FALSE}
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/DEMO_J.XPT", 
+              demo_1718 <- tempfile(), 
+              mode="wb")
+demo_1718<-read.xport(demo_1718)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/SMQ_J.XPT", 
+              smq_1718 <- tempfile(), 
+              mode="wb")
+smq_1718<-read.xport(smq_1718)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/ALQ_J.XPT", 
+              alq_1718 <- tempfile(), 
+              mode="wb")
+alq_1718<-read.xport(alq_1718)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/HSCRP_J.XPT", 
+              hscrp_1718 <- tempfile(), 
+              mode="wb")
+hscrp_1718<-read.xport(hscrp_1718)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/PBCD_J.XPT", 
+              pbcd_1718 <- tempfile(), 
+              mode="wb")
+pbcd_1718<-read.xport(pbcd_1718)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/UCFLOW_J.XPT", 
+              ucflow_1718 <- tempfile(), 
+              mode="wb")
+ucflow_1718<-read.xport(ucflow_1718)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/MCQ_J.XPT", 
+              mc_1718 <- tempfile(), 
+              mode="wb")
+mc_1718<-read.xport(mc_1718)
+```
+
+```{r message=FALSE, warning=FALSE}
+dt1 <-demo_1718 %>%
+  full_join(alq_1718, by="SEQN")
+dt2<- dt1 %>%
+  full_join(smq_1718, bu="SEQN")
+dt3<- dt2 %>%
+  full_join(hscrp_1718, by="SEQN")
+dt4<- dt3 %>%
+  full_join(pbcd_1718,by="SEQN")
+dt5<- dt4 %>%
+  full_join(ucflow_1718, by="SEQN")
+dt1718<-dt4 %>%
+  full_join(mc_1718, by="SEQN")
+```
+```{r message=FALSE, warning=FALSE}
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/DEMO_I.XPT", 
+              demo_1516 <- tempfile(), 
+              mode="wb")
+demo_1516<-read.xport(demo_1516)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/SMQ_I.XPT", 
+              smq_1516 <- tempfile(), 
+              mode="wb")
+smq_1516<-read.xport(smq_1516)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/ALQ_I.XPT", 
+              alq_1516 <- tempfile(), 
+              mode="wb")
+alq_1516<-read.xport(alq_1516)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/HSCRP_I.XPT", 
+              hscrp_1516 <- tempfile(), 
+              mode="wb")
+hscrp_1516<-read.xport(hscrp_1516)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/PBCD_I.XPT", 
+              pbcd_1516 <- tempfile(), 
+              mode="wb")
+pbcd_1516<-read.xport(pbcd_1516)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/UCFLOW_I.XPT", 
+              ucflow_1516 <- tempfile(), 
+              mode="wb")
+ucflow_1516<-read.xport(ucflow_1516)
+download.file("https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/MCQ_I.XPT", 
+              mc_1516 <- tempfile(), 
+              mode="wb")
+mc_1516<-read.xport(mc_1516)
+```
+
+```{r message=FALSE, warning=FALSE}
+dt5 <-demo_1516 %>%
+  full_join(alq_1516, by="SEQN")
+dt6<- dt5 %>%
+  full_join(smq_1516, bu="SEQN")
+dt7<- dt6 %>%
+  full_join(hscrp_1516, by="SEQN")
+dt8<- dt7 %>%
+  full_join(pbcd_1516,by="SEQN")
+dt9<- dt8 %>%
+  full_join(ucflow_1516, by="SEQN")
+dt1516<-dt9 %>%
+  full_join(mc_1516, by="SEQN")
+```
+combine 15-16 cycle and 17-18 cycle
+```{r message=FALSE, warning=FALSE}
+dt<-smartbind(dt1516,dt1718)
+```
+
+generate variables for prostate, smoking, alcohol consumption, C-reactive protein, 
+```{r message=FALSE, warning=FALSE}
+dt$prostate<-NA
+dt$smoking<-NA
+dt$alcohol<-NA
+dt$crp<-NA
+dt$race<-dt$RIDRETH1
+dt$age<-dt$RIDAGEYR
+dt$cadimium<-dt$LBDBCDSI
+dt$uflowrate <-dt$URDFLOW3
+
+dt$prostate[dt$MCQ230A==30]<-1 # Yes
+dt$prostate[dt$MCQ230A!=30]<-0 # No
+table(dt$prostate)
+
+dt$smoking[dt$SMQ020==2]<-1 # never
+dt$smoking[dt$SMQ020==1&dt$SMQ040==3]<-2 # former
+dt$smoking[dt$SMQ020==1&dt$SMQ040<=2]<-3 # current
+table(dt$smoking)
+
+dt$alcohol[dt$ALQ101==1]<-3 # current
+dt$alcohol[dt$ALQ110==2]<-1 # never
+dt$alcohol[dt$ALQ110==1&dt$ALQ101==1]<-2 # former
+table(dt$alcohol)
+
+summary(dt$LBXHSCRP)
+dt$crp[dt$LBXHSCRP<=3&dt$LBXHSCRP>0]<-0 #Low grade inflammation
+dt$crp[dt$LBXHSCRP>3]<-1 #High grade inflammation
+table(dt$crp)
+
+table(dt$race)
+
+summary(dt$age)
+
+summary(dt$cadimium)
+
+summary(dt$uflowrate)
+
+```
+Drop the missing of prostate cancer and repair the data 
+```{r}
+dt_select<- dt[,c("prostate", "smoking", "alcohol","crp", "race", "age", "cadimium", "uflowrate")]
+colSums(is.na(dt_select))
+dt_na.rm <- filter(dt_select, !is.na(dt_select$prostate))
+colSums(is.na(dt_na.rm))
+# Too many missing value, so we use the mi package to repair the data. 
+```
+
+```{r message=FALSE, warning=FALSE}
+dt.repair<-missing_data.frame(dt_na.rm)
+show(dt.repair)
+summary(dt.repair)
+set.seed(1)
+imputations <- mi(dt.repair, parallel=F, n.iter=50, n.chains=5)
+Rhats(imputations)
+plot(imputations) ### The data looks good after repair. We randomly select the thrid 3 as our data for the future project. 
+```
+```{r}
+dt.3<-complete(imputations)
+data_repair<-dt.3$`chain:3`[,c(1:8)] # cadimium and ufrlowrate cannot be less than 0, so observations less than 0 should be removed.
+data<-filter(data_repair, cadimium>0&uflowrate>0)
+head(data)
+```
+Train,and test are splitted by 70%, and 30%. 
+```{r, split the data}
+set.seed(1)
+assignment <- sample(1:2, size = nrow(data), prob = c(0.7,0.3), replace = T)
+dt_train<-data[assignment==1,]
+dt_test<-data[assignment==2,]
+```
+
+Plot
+```{r}
+plot(dt_train)
+```
+```{r}
+table(data$prostate)
+table(data$smoking,data$prostate)
+prop.table(table(data$smoking,data$prostate),1)
+table(data$alcohol,data$prostate)
+prop.table(table(data$alcohol,data$prostate),1)
+table(data$crp,data$prostate)
+prop.table(table(data$crp,data$prostate),1)
+table(data$race, data$prostate)
+prop.table(table(data$race, data$prostate),1)
+by(data[,c(6:8)], data$prostate, summary)
+```
+
+Variable selection
+```{r}
+attach(data)
+fit<-glm(prostate~factor(smoking)+factor(alcohol)+factor(crp)+factor(race)+age+cadimium+uflowrate, family = binomial,data = dt_train)
+stepAIC(fit)
+```
+After model selection, variables, age, alcohol, crp, race and uflowrate are selected to created the LDA model, QDA model and LR model.
+```{r}
+lda.fit<-lda(prostate~age+alcohol+crp+race+uflowrate,data = dt_train)
+lda.fit
+lda.pred=predict(lda.fit, newdata = dt_test)
+table(lda.pred$class,dt_test$prostate)
+mean(lda.pred$class == dt_test$prostate)
+mean(lda.pred$class != dt_test$prostate)
+```
+QDA
+```{r}
+qda.fit<-qda(prostate~age+alcohol+crp+race+uflowrate,data = dt_train)
+qda.fit
+qda.pred=predict(qda.fit, newdata = dt_test)
+table(qda.pred$class,dt_test$prostate)
+mean(qda.pred$class == dt_test$prostate)
+mean(qda.pred$class != dt_test$prostate)
+```
+LR
+```{r}
+lr.fit<-glm(prostate~age+as.factor(alcohol)+as.factor(crp)+as.factor(race)+uflowrate, family = binomial, data = dt_train)
+summary(lr.fit)
+lr.prod<-predict(lr.fit, type="response",newdata=dt_test)
+lr.pred<- ifelse(lr.prod>0.5, 1, 0)
+table(lr.pred,dt_test$prostate)
+mean(lr.pred==dt_test$prostate)
+mean(lr.pred!=dt_test$prostate)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+par(mfrow=c(1,3))
+roc(dt_test$prostate,qda.pred$posterior[,2], plot=TRUE, print.auc=TRUE, main="ROC-AUC for QDA Model",ylim=c(0,1.5))
+roc(dt_test$prostate,lda.pred$posterior[,2], plot=TRUE, print.auc=TRUE, main="ROC-AUC for LDA Model",ylim=c(0,1.5))
+roc(dt_test$prostate,lr.prod, plot=TRUE, print.auc=TRUE, main="ROC-AUC for LR Model", ylim=c(0,1.5))
+```
